@@ -13,6 +13,26 @@
 
     ```shell script
     [oracle@localhost dockerfiles]$ ./buildContainerImage.sh -h
+   
+   Usage: buildContainerImage.sh -v [version] [-e | -s | -x] [-i] [-o] [container build option]
+   Builds a container image for Oracle Database.
+   
+   Parameters:
+      -v: version to build
+          Choose one of: 11.2.0.2  12.1.0.2  12.2.0.1  18.3.0  18.4.0  19.3.0  
+      -e: creates image based on 'Enterprise Edition'
+      -s: creates image based on 'Standard Edition 2'
+      -x: creates image based on 'Express Edition'
+      -i: ignores the MD5 checksums
+      -o: passes on container build option
+   
+   * select one edition only: -e, -s, or -x
+   
+   LICENSE UPL 1.0
+   
+   Copyright (c) 2014,2021 Oracle and/or its affiliates.
+   
+    [oracle@localhost dockerfiles]$ ./buildContainerImage.sh -v 12.1.0.2 -e
     ``` 
 5. 启动容器
 
