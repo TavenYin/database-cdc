@@ -1,4 +1,4 @@
-package com.github.taven;
+package com.github.taven.xstream;
 
 import oracle.jdbc.OracleConnection;
 import oracle.sql.NUMBER;
