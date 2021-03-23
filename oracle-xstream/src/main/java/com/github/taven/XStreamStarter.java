@@ -1,13 +1,13 @@
 package com.github.taven;
 
-import com.github.taven.oracle.JdbcUtil;
-import com.github.taven.oracle.OracleConfig;
-import com.github.taven.oracle.OracleSnapshotExecutor;
+import com.github.taven.oracle.*;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.util.Properties;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * 通过闪回 + XStream 实现Oracle 全量 + 增量数据迁移
@@ -26,8 +26,12 @@ public class XStreamStarter {
                 config.getProperty(OracleConfig.jdbcUser),
                 config.getProperty(OracleConfig.jdbcPassword));
 
-        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema);
-        snapshotExecutor.execute();
+        Queue<DatabaseRecord> queue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
+
+        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, queue);
+        SnapshotResult snapshotResult = snapshotExecutor.execute();
+
+        // 启动增量
 
     }
 

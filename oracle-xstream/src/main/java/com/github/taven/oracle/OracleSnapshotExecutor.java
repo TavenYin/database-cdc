@@ -1,19 +1,19 @@
 package com.github.taven.oracle;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class OracleSnapshotExecutor {
     private final Connection connection;
     private final String schema;
     private Map<String, List<TableColumn>> tableStructure;
+    private final Queue<DatabaseRecord> queue;
 
-    public OracleSnapshotExecutor(Connection connection, String schema) {
+    public OracleSnapshotExecutor(Connection connection, String schema, Queue<DatabaseRecord> queue) {
         this.connection = connection;
         this.schema = schema;
+        this.queue = queue;
     }
 
     public SnapshotResult execute() {
@@ -23,38 +23,41 @@ public class OracleSnapshotExecutor {
             if (tableStructure == null || tableStructure.isEmpty())
                 return SnapshotResult.NULL;
 
-            // read all tables result
-            flashbackQuery();
+            // current scn
+            long scn = getCurrentScn();
 
-            return null;
+            // read all tables result
+            flashbackQuery(scn);
+
+            return new SnapshotResult(tableStructure, true, scn);
         } catch (SQLException e) {
             throw new RuntimeException(e.getMessage(), e);
         }
     }
 
-    private Map<String, List<Object[]>> flashbackQuery() throws SQLException {
-        // current scn
-        long scn = getCurrentScn();
-
+    private void flashbackQuery(long scn) throws SQLException {
         try (Statement statement = readTableStatement()) {
-            for (String tableName : tableStructure.keySet()) {
+            for (Map.Entry<String, List<TableColumn>> entry : tableStructure.entrySet()) {
+                String tableName = entry.getKey();
+                List<TableColumn> columns = entry.getValue();
+
                 String sql = String.format("SELECT * FROM %s AS OF SCN %s", tableName, scn);
                 try (ResultSet rs = statement.executeQuery(sql)) {
-                    ResultSetMetaData metaData = rs.getMetaData();
-
                     while (rs.next()) {
-                        Object[] row = new Object[metaData.getColumnCount()];
-                        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                            row[i-1] = rs.getObject(i);
+                        Object[] row = new Object[columns.size()];
+                        for (int i = 0; i < columns.size(); i++) {
+                            row[i] = rs.getObject(columns.get(i).getColumnName());
                         }
 
+                        // 如果单纯是线性的读，数据量很大的话会导致OOM，所以正确的做法是一边读一边消费
+                        queue.add(new DatabaseRecord(columns, row));
                     }
 
                 }
             }
         }
-        return null;
     }
+
 
     private Statement readTableStatement() throws SQLException {
         Statement statement = connection.createStatement();
@@ -86,7 +89,6 @@ public class OracleSnapshotExecutor {
         }
 
         tableStructure = tableColumnList.stream().collect(Collectors.groupingBy(TableColumn::getTableName));
-
     }
 
 
@@ -99,7 +101,6 @@ public class OracleSnapshotExecutor {
             }
 
             return rs.getLong(1);
-
         }
     }
 
