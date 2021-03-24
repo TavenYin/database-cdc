@@ -4,7 +4,11 @@
 
     要求 11.2.0.4/12.1.0.2或以上版本
 
+    参考：https://github.com/TavenYin/database-cdc/blob/master/doc/oracle/oracle-install.md
+
 2. 开启归档日志
+
+    参考：https://github.com/TavenYin/database-cdc/blob/master/doc/oracle/open-archive-log.md
 
 3. 配置Xstream相关 
 
@@ -83,7 +87,7 @@
     ```
     如果是抓取schema下的所有表，就不需要配置tables
 
-- 执行以下命令，运行xstrm用户连接出站服务器
+- sys用户登录，执行以下命令，运行xstrm用户连接出站服务器
     ```
     BEGIN
     DBMS_XSTREAM_ADM.ALTER_OUTBOUND(
