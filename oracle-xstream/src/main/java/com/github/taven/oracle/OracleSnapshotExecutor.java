@@ -41,7 +41,7 @@ public class OracleSnapshotExecutor {
                 String tableName = entry.getKey();
                 List<TableColumn> columns = entry.getValue();
 
-                String sql = String.format("SELECT * FROM %s AS OF SCN %s", tableName, scn);
+                String sql = String.format("SELECT * FROM %s.%s AS OF SCN %s", schema, tableName, scn);
                 try (ResultSet rs = statement.executeQuery(sql)) {
                     while (rs.next()) {
                         Object[] row = new Object[columns.size()];

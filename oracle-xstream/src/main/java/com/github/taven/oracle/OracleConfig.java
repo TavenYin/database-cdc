@@ -10,6 +10,8 @@ public class OracleConfig {
     public static final String jdbcUser = "oracle.jdbc.user";
     public static final String jdbcPassword = "oracle.jdbc.password";
     public static final String jdbcSchema = "oracle.jdbc.schema";
+    public static final String ociUrl = "oracle.xstream.url";
+    public static final String outboundServer = "oracle.xstream.outboundServer";
 
     private OracleConfig() {}
 

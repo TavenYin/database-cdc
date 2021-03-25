@@ -21,9 +21,9 @@
         <dependency>
             <groupId>oracle</groupId>
             <artifactId>ojdbc6</artifactId>
-            <version>oracle11g</version>
+            <version>oracle12c</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/ojdbc6.jar</systemPath>
+            <systemPath>${project.basedir}/lib/ojdbc7.jar</systemPath>
         </dependency>
 
         <dependency>

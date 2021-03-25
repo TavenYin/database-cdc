@@ -30,4 +30,13 @@ public class SnapshotResult {
     public long getScn() {
         return scn;
     }
+
+    @Override
+    public String toString() {
+        return "SnapshotResult{" +
+                "tableStructure=" + tableStructure +
+                ", complete=" + complete +
+                ", scn=" + scn +
+                '}';
+    }
 }
