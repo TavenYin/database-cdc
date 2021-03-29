@@ -44,7 +44,7 @@ public class XStreamStarter {
                 config.getProperty(OracleConfig.jdbcPassword));
         OracleXStreamCDC xStreamCDC = new OracleXStreamCDC();
         xStreamCDC.start((OracleConnection) ociConnection,
-                config.getProperty(OracleConfig.outboundServer), snapshotResult.getScn());
+                config.getProperty(OracleConfig.outboundServer), 2253043);
     }
 
 }
