@@ -9,9 +9,9 @@ import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class LogminerStarter {
+public class LogMinerStarter {
     public static void main(String[] args) throws IOException {
-        InputStream inputStream = LogminerStarter.class.getClassLoader().getResourceAsStream("config.properties");
+        InputStream inputStream = LogMinerStarter.class.getClassLoader().getResourceAsStream("config.properties");
         Properties config = OracleConfig.load(inputStream);
 
         String schema = config.getProperty(OracleConfig.jdbcSchema);
