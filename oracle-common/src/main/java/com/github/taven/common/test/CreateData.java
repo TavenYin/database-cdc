@@ -1,8 +1,7 @@
-package com.github.taven.test;
+package com.github.taven.common.test;
 
-import com.github.taven.XStreamStarter;
-import com.github.taven.oracle.JdbcUtil;
-import com.github.taven.oracle.OracleConfig;
+import com.github.taven.common.oracle.JdbcUtil;
+import com.github.taven.common.oracle.OracleConfig;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,7 +12,7 @@ import java.util.UUID;
 
 public class CreateData {
     public static void main(String[] args) throws IOException, SQLException {
-        InputStream inputStream = XStreamStarter.class.getClassLoader().getResourceAsStream("test.properties");
+        InputStream inputStream = CreateData.class.getClassLoader().getResourceAsStream("test.properties");
         Properties config = OracleConfig.load(inputStream);
 
         String schema = config.getProperty(OracleConfig.jdbcSchema);

@@ -1,4 +1,4 @@
-package com.github.taven.oracle;
+package com.github.taven.common.oracle;
 
 import java.io.IOException;
 import java.io.InputStream;

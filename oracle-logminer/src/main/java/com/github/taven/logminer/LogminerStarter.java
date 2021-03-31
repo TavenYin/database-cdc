@@ -1,9 +1,6 @@
-package com.github.taven;
+package com.github.taven.logminer;
 
 import com.github.taven.common.oracle.*;
-import com.github.taven.common.oracle.OracleConfig;
-import com.github.taven.xstream.OracleXStreamCDC;
-import oracle.jdbc.OracleConnection;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,17 +9,9 @@ import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-/**
- * 通过闪回 + XStream 实现Oracle 全量 + 增量数据迁移
- * 注：未考虑表结构变动的情况
- *
- * -Djava.library.path=/instantclient_12_1
- *
- */
-public class XStreamStarter {
-
+public class LogminerStarter {
     public static void main(String[] args) throws IOException {
-        InputStream inputStream = XStreamStarter.class.getClassLoader().getResourceAsStream("config.properties");
+        InputStream inputStream = LogminerStarter.class.getClassLoader().getResourceAsStream("config.properties");
         Properties config = OracleConfig.load(inputStream);
 
         String schema = config.getProperty(OracleConfig.jdbcSchema);
@@ -37,15 +26,5 @@ public class XStreamStarter {
         OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, queue);
         SnapshotResult snapshotResult = snapshotExecutor.execute();
         System.out.println("snapshot completed, scn is " + snapshotResult.getScn());
-
-        // 启动增量
-        Connection ociConnection = JdbcUtil.createConnection(config.getProperty(OracleConfig.jdbcDriver),
-                config.getProperty(OracleConfig.ociUrl),
-                config.getProperty(OracleConfig.jdbcUser),
-                config.getProperty(OracleConfig.jdbcPassword));
-        OracleXStreamCDC xStreamCDC = new OracleXStreamCDC();
-        xStreamCDC.start((OracleConnection) ociConnection,
-                config.getProperty(OracleConfig.outboundServer), snapshotResult.getScn());
     }
-
 }

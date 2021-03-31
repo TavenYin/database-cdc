@@ -33,6 +33,13 @@
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/xstreams.jar</systemPath>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.taven</groupId>
+            <artifactId>oracle-common</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
