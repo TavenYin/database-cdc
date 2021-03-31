@@ -20,8 +20,8 @@
     <dependencies>
         <dependency>
             <groupId>oracle</groupId>
-            <artifactId>ojdbc6</artifactId>
-            <version>oracle12c</version>
+            <artifactId>ojdbc</artifactId>
+            <version>instantclient_12_1</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/ojdbc7.jar</systemPath>
         </dependency>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>oracle</groupId>
             <artifactId>xstreams</artifactId>
-            <version>oracle11g</version>
+            <version>instantclient_12_1</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/xstreams.jar</systemPath>
         </dependency>
