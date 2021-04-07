@@ -1,6 +1,8 @@
 HELP.md
 target/
 oracle-xstream/target/
+oracle-logminer/target/
+oracle-common/target/
 
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
