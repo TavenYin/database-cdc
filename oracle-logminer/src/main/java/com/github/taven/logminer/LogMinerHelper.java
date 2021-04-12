@@ -1,6 +1,5 @@
 package com.github.taven.logminer;
 
-import oracle.jdbc.OracleConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +31,7 @@ public class LogMinerHelper {
         }
     }
 
-    private static void executeCallableStatement(Connection connection, String statement) throws SQLException {
+    public static void executeCallableStatement(Connection connection, String statement) throws SQLException {
         Objects.requireNonNull(statement);
         try (CallableStatement s = connection.prepareCall(statement)) {
             s.execute();
@@ -60,9 +59,13 @@ public class LogMinerHelper {
         return redoLogFiles;
     }
 
-    public static List<LogFile> getArchivedLogFilesForOffsetScn(OracleConnection connection, BigInteger offsetScn) throws SQLException {
+    public static List<LogFile> getArchivedLogFilesForOffsetScn(Connection connection, BigInteger offsetScn) throws SQLException {
+        String archiveLogsQuery = String.format("SELECT NAME AS FILE_NAME, NEXT_CHANGE# AS NEXT_CHANGE, FIRST_CHANGE# AS FIRST_CHANGE FROM V$ARCHIVED_LOG " +
+                "WHERE NAME IS NOT NULL AND ARCHIVED = 'YES' " +
+                "AND STATUS = 'A' AND NEXT_CHANGE# > %s ORDER BY 2", offsetScn);
+
         final List<LogFile> archiveLogFiles = new ArrayList<>();
-        try (PreparedStatement s = connection.prepareStatement(SqlUtils.archiveLogsQuery(offsetScn))) {
+        try (PreparedStatement s = connection.prepareStatement(archiveLogsQuery)) {
             try (ResultSet rs = s.executeQuery()) {
                 while (rs.next()) {
                     String fileName = rs.getString(1);
@@ -73,6 +76,82 @@ public class LogMinerHelper {
             }
         }
         return archiveLogFiles;
+    }
+
+    public static void addLogFile(Connection connection, String fileName) throws SQLException {
+        String addLogFile = "BEGIN sys.dbms_logmnr.add_logfile(LOGFILENAME => '%s', OPTIONS => %s);END;";
+        String options = "DBMS_LOGMNR.ADDFILE";
+        executeCallableStatement(connection, String.format(addLogFile, fileName, options));
+    }
+
+    public static List<BigInteger> getCurrentRedoLogSequences(Connection connection) throws SQLException {
+        String currentRedoSequence = "SELECT SEQUENCE# FROM V$LOG WHERE STATUS = 'CURRENT'";
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(currentRedoSequence)) {
+            List<BigInteger> sequences = new ArrayList<>();
+            if (rs.next()) {
+                sequences.add(new BigInteger(rs.getString(1)));
+            }
+            // 如果是RAC则会返回多个SEQUENCE
+            return sequences;
+        }
+    }
+
+    public static void startLogMiner(Connection connection, BigInteger startScn, BigInteger endScn) throws SQLException {
+        // default
+        String miningStrategy = "DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG ";
+
+        String startLogMiner = "BEGIN sys.dbms_logmnr.start_logmnr(" +
+                "startScn => '" + startScn + "', " +
+                "endScn => '" + endScn + "', " +
+                "OPTIONS => " + miningStrategy +
+                " + DBMS_LOGMNR.NO_ROWID_IN_STMT);" +
+                "END;";
+
+        executeCallableStatement(connection, startLogMiner);
+    }
+
+    public static void endLogMiner(Connection connection) {
+        try {
+            executeCallableStatement(connection, "BEGIN SYS.DBMS_LOGMNR.END_LOGMNR(); END;");
+        }
+        catch (SQLException e) {
+            if (e.getMessage().toUpperCase().contains("ORA-01307")) {
+                LOGGER.info("LogMiner session was already closed");
+            }
+            else {
+                LOGGER.error("Cannot close LogMiner session gracefully: {}", e);
+            }
+        }
+    }
+
+    public static String logMinerViewQuery() {
+        StringBuilder query = new StringBuilder();
+        query.append("SELECT SCN, SQL_REDO, OPERATION_CODE, TIMESTAMP, XID, CSF, TABLE_NAME, SEG_OWNER, OPERATION, USERNAME ");
+        query.append("FROM V$LOGMNR_CONTENTS ").append(" ");
+        query.append("WHERE ");
+        query.append("SCN > ? AND SCN <= ? ");
+        query.append("AND (");
+        // MISSING_SCN/DDL only when not performed by excluded users
+        query.append("(OPERATION_CODE IN (5,34))");
+        // COMMIT/ROLLBACK
+        query.append("OR (OPERATION_CODE IN (7,36)) ");
+        // INSERT/UPDATE/DELETE
+        query.append("OR ");
+        query.append("(OPERATION_CODE IN (1,2,3) ");
+        query.append("))");
+
+        return query.toString();
+    }
+
+    public interface ResultSetProcessor {
+        void apply(ResultSet rs) throws SQLException;
+    }
+
+    public static void executeQuery(PreparedStatement statement, ResultSetProcessor rsProcessor) throws SQLException {
+        try (ResultSet rs = statement.executeQuery()) {
+            rsProcessor.apply(rs);
+        }
     }
 
 }

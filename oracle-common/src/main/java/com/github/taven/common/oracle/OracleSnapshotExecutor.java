@@ -24,7 +24,7 @@ public class OracleSnapshotExecutor {
                 return SnapshotResult.NULL;
 
             // current scn
-            long scn = getCurrentScn();
+            long scn = OracleHelper.getCurrentScn(connection);
 
             // read all tables result
             flashbackQuery(scn);
@@ -89,19 +89,6 @@ public class OracleSnapshotExecutor {
         }
 
         tableStructure = tableColumnList.stream().collect(Collectors.groupingBy(TableColumn::getTableName));
-    }
-
-
-    private long getCurrentScn() throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            ResultSet rs = statement.executeQuery("select CURRENT_SCN from V$DATABASE");
-
-            if (!rs.next()) {
-                throw new IllegalStateException("Couldn't get SCN");
-            }
-
-            return rs.getLong(1);
-        }
     }
 
 }
