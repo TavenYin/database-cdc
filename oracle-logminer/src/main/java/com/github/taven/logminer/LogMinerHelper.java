@@ -10,22 +10,16 @@ import java.util.*;
 public class LogMinerHelper {
     private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerHelper.class);
 
-    static final String FILES_FOR_MINING = "SELECT FILENAME AS NAME FROM V$LOGMNR_LOGS";
-    static final String DELETE_LOGFILE_TEMPLATE = "BEGIN SYS.DBMS_LOGMNR.REMOVE_LOGFILE(LOGFILENAME => '%s');END;";
-    static final String ONLINE_LOGS_QUERY = "SELECT MIN(F.MEMBER) AS FILE_NAME, L.NEXT_CHANGE# AS NEXT_CHANGE, F.GROUP#, L.FIRST_CHANGE# AS FIRST_CHANGE, L.STATUS " +
-            " FROM V$LOG L, V$LOGFILE F " +
-            " WHERE F.GROUP# = L.GROUP# AND L.NEXT_CHANGE# > 0 " +
-            " GROUP BY F.GROUP#, L.NEXT_CHANGE#, L.FIRST_CHANGE#, L.STATUS ORDER BY 3";
-
     public static void removeLogFilesFromMining(Connection conn) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(FILES_FOR_MINING);
+        try (PreparedStatement ps = conn.prepareStatement("SELECT FILENAME AS NAME FROM V$LOGMNR_LOGS");
              ResultSet result = ps.executeQuery()) {
             Set<String> files = new LinkedHashSet<>();
             while (result.next()) {
                 files.add(result.getString(1));
             }
             for (String fileName : files) {
-                executeCallableStatement(conn, String.format(DELETE_LOGFILE_TEMPLATE, fileName));
+                String sql = String.format("BEGIN SYS.DBMS_LOGMNR.REMOVE_LOGFILE(LOGFILENAME => '%s');END;", fileName);
+                executeCallableStatement(conn, sql);
                 LOGGER.debug("File {} was removed from mining", fileName);
             }
         }
@@ -41,7 +35,12 @@ public class LogMinerHelper {
     public static List<LogFile> getOnlineLogFilesForOffsetScn(Connection connection, BigInteger offsetScn) throws SQLException {
         List<LogFile> redoLogFiles = new ArrayList<>();
 
-        try (PreparedStatement s = connection.prepareStatement(ONLINE_LOGS_QUERY)) {
+        String onlineLogQuery = "SELECT MIN(F.MEMBER) AS FILE_NAME, L.NEXT_CHANGE# AS NEXT_CHANGE, F.GROUP#, L.FIRST_CHANGE# AS FIRST_CHANGE, L.STATUS " +
+                " FROM V$LOG L, V$LOGFILE F " +
+                " WHERE F.GROUP# = L.GROUP# AND L.NEXT_CHANGE# > 0 " +
+                " GROUP BY F.GROUP#, L.NEXT_CHANGE#, L.FIRST_CHANGE#, L.STATUS ORDER BY 3";
+
+        try (PreparedStatement s = connection.prepareStatement(onlineLogQuery)) {
             try (ResultSet rs = s.executeQuery()) {
                 while (rs.next()) {
                     String fileName = rs.getString(1);

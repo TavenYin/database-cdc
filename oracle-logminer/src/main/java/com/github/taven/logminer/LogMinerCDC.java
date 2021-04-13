@@ -55,6 +55,9 @@ public class LogMinerCDC {
 
                     // 7.确定新的SCN
                     startScn = endScn;
+
+                    // 8.重启后的StartScn
+
                 }
 
             }
@@ -65,8 +68,40 @@ public class LogMinerCDC {
 
     }
 
-    private void logMinerViewProcessor(ResultSet rs) {
+    private void logMinerViewProcessor(ResultSet rs) throws SQLException {
+        while (rs.next()) {
+            BigInteger scn = rs.getBigDecimal("SCN").toBigInteger();
+            String tableName = rs.getString("TABLE_NAME");
+            String segOwner = rs.getString("SEG_OWNER");
+            int operationCode = rs.getInt("OPERATION_CODE");
+            Timestamp changeTime = rs.getTimestamp("TIMESTAMP");
+            String txId = rs.getString("XID");
+            String operation = rs.getString("OPERATION");
+            String username = rs.getString("USERNAME");
 
+            String redoSql = getRedoSQL(rs);
+
+            // Commit
+                // continue
+
+            // Rollback
+                // continue
+
+            // DDL
+                // continue
+
+            // MISSING_SCN
+                // continue
+
+            // DML
+                // 内部维护 TransactionalBuffer，将每条DML注册到Buffer中
+                // 根据事务提交或者回滚情况决定如何处理
+
+        }
+    }
+
+    private String getRedoSQL(ResultSet rs) {
+        return null;
     }
 
     private void restartLogMiner() throws SQLException {
