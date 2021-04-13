@@ -39,7 +39,7 @@ public class LogMinerCDC {
 
                     // 4.是否发生redoLog切换
                     if (redoLogSwitchOccurred()) {
-                        // 如果切换则重启logMiner流程
+                        // 如果切换则重启logMiner会话
                         restartLogMiner();
                     }
 
@@ -82,9 +82,11 @@ public class LogMinerCDC {
             String redoSql = getRedoSQL(rs);
 
             // Commit
+                // 将TransactionalBuffer中当前事务的DML 转移到消费者处理
                 // continue
 
             // Rollback
+                // 清空TransactionalBuffer中当前事务
                 // continue
 
             // DDL
