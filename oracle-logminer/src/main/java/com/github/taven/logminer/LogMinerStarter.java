@@ -1,9 +1,11 @@
 package com.github.taven.logminer;
 
+import com.github.taven.common.consumer.ConsumerThreadPool;
 import com.github.taven.common.oracle.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.util.Properties;
 import java.util.Queue;
@@ -26,5 +28,9 @@ public class LogMinerStarter {
         OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, queue);
         SnapshotResult snapshotResult = snapshotExecutor.execute();
         System.out.println("snapshot completed, scn is " + snapshotResult.getScn());
+
+        LogMinerCDC logMinerCDC = new LogMinerCDC(connection,
+                BigInteger.valueOf(snapshotResult.getScn()), new ConsumerThreadPool());
+        logMinerCDC.start();
     }
 }

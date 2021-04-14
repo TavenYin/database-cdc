@@ -10,6 +10,14 @@ import java.util.*;
 public class LogMinerHelper {
     private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerHelper.class);
 
+    public static final int LOG_MINER_OC_INSERT = 1;
+    public static final int LOG_MINER_OC_DELETE = 2;
+    public static final int LOG_MINER_OC_UPDATE = 3;
+    public static final int LOG_MINER_OC_DDL = 5;
+    public static final int LOG_MINER_OC_COMMIT = 7;
+    public static final int LOG_MINER_OC_MISSING_SCN = 34;
+    public static final int LOG_MINER_OC_ROLLBACK = 36;
+
     public static void removeLogFilesFromMining(Connection conn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("SELECT FILENAME AS NAME FROM V$LOGMNR_LOGS");
              ResultSet result = ps.executeQuery()) {

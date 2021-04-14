@@ -1,24 +1,30 @@
 package com.github.taven.logminer;
 
-import com.github.taven.common.oracle.DatabaseRecord;
+import com.github.taven.common.consumer.ConsumerThreadPool;
 import com.github.taven.common.oracle.OracleHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.swing.tree.RowMapper;
 import java.math.BigInteger;
 import java.sql.*;
 import java.util.List;
-import java.util.Queue;
 import java.util.stream.Collectors;
 
 public class LogMinerCDC {
-    private Connection connection;
+    private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerCDC.class);
+    private final Connection connection;
     private BigInteger startScn;
-    private Queue<DatabaseRecord> queue;
+    private final ConsumerThreadPool consumerThreadPool;
     private List<BigInteger> currentRedoLogSequences;
+    private final TransactionalBuffer transactionalBuffer;
+    private OffsetContext offsetContext;
 
-    public LogMinerCDC(Connection connection, BigInteger startScn, Queue<DatabaseRecord> queue) {
+    public LogMinerCDC(Connection connection, BigInteger startScn, ConsumerThreadPool consumerThreadPool) {
         this.connection = connection;
         this.startScn = startScn;
-        this.queue = queue;
+        this.consumerThreadPool = consumerThreadPool;
+        this.transactionalBuffer = new TransactionalBuffer();
     }
 
     public void start() {
@@ -57,7 +63,9 @@ public class LogMinerCDC {
                     startScn = endScn;
 
                     // 8.重启后的StartScn
-
+                    if (transactionalBuffer.isEmpty()) {
+                        offsetContext.offsetScn = startScn.longValue();
+                    }
                 }
 
             }
@@ -82,28 +90,88 @@ public class LogMinerCDC {
             String redoSql = getRedoSQL(rs);
 
             // Commit
+            if (operationCode == LogMinerHelper.LOG_MINER_OC_COMMIT) {
                 // 将TransactionalBuffer中当前事务的DML 转移到消费者处理
-                // continue
+                if (transactionalBuffer.commit(txId, scn, offsetContext)) {
+                    LOGGER.debug("txId: {} commit", txId);
+                }
+                continue;
+            }
 
             // Rollback
+            if (operationCode == LogMinerHelper.LOG_MINER_OC_ROLLBACK) {
                 // 清空TransactionalBuffer中当前事务
-                // continue
+                if (transactionalBuffer.rollback(txId)) {
+                    LOGGER.debug("txId: {} rollback", txId);
+                }
+                continue;
+            }
 
             // DDL
-                // continue
+            if (operationCode == LogMinerHelper.LOG_MINER_OC_DDL) {
+                LOGGER.info("DDL: {}", redoSql);
+                continue;
+            }
 
             // MISSING_SCN
-                // continue
+            // MISSING_SCN
+            if (operationCode == LogMinerHelper.LOG_MINER_OC_MISSING_SCN) {
+                LOGGER.warn("Found MISSING_SCN");
+                continue;
+            }
 
             // DML
+            if (operationCode == LogMinerHelper.LOG_MINER_OC_INSERT
+                    || operationCode == LogMinerHelper.LOG_MINER_OC_DELETE
+                    || operationCode == LogMinerHelper.LOG_MINER_OC_UPDATE) {
                 // 内部维护 TransactionalBuffer，将每条DML注册到Buffer中
                 // 根据事务提交或者回滚情况决定如何处理
+                if (redoSql != null) {
+                    LOGGER.debug("txId: {}, dml: {}", txId, redoSql);
+                    LogMinerDmlObject dmlObject = new LogMinerDmlObject(redoSql, segOwner, tableName, changeTime, txId, scn);
+                    // Transactional Commit Callback
+                    TransactionalBuffer.CommitCallback commitCallback = (smallestScn, commitScn, counter) -> {
+                        if (smallestScn == null || scn.compareTo(smallestScn) < 0) {
+                            // 当前SCN 事务已经提交 并且 小于事务缓冲区中所有的开始SCN，所以可以更新offsetScn
+                            offsetContext.offsetScn = scn.longValue();
+                        }
+
+                        if (counter == 0) {
+                            offsetContext.setCommittedScn(commitScn.longValue());
+                        }
+
+                        // 消费LogMiner数据
+                        consumerThreadPool.asyncConsume(() -> LogMinerDmlConsumer.consume(dmlObject));
+                    };
+
+                    transactionalBuffer.registerCommitCallback(txId, scn, changeTime.toInstant(), commitCallback);
+                }
+
+            }
 
         }
     }
 
-    private String getRedoSQL(ResultSet rs) {
-        return null;
+    private String getRedoSQL(ResultSet rs) throws SQLException {
+        String redoSql = rs.getString("SQL_REDO");
+        if (redoSql == null) {
+            return null;
+        }
+        StringBuilder redoBuilder = new StringBuilder(redoSql);
+
+        // https://docs.oracle.com/cd/B19306_01/server.102/b14237/dynviews_1154.htm#REFRN30132
+        // Continuation SQL flag. Possible values are:
+        // 0 = indicates SQL_REDO and SQL_UNDO is contained within the same row
+        // 1 = indicates that either SQL_REDO or SQL_UNDO is greater than 4000 bytes in size and is continued in the next row returned by the view
+        int csf = rs.getInt("CSF");
+
+        while (csf == 1) {
+            rs.next();
+            redoBuilder.append(rs.getString("SQL_REDO"));
+            csf = rs.getInt("CSF");
+        }
+
+        return redoBuilder.toString();
     }
 
     private void restartLogMiner() throws SQLException {
