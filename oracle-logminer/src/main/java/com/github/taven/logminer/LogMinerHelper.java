@@ -1,5 +1,6 @@
 package com.github.taven.logminer;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,28 @@ public class LogMinerHelper {
                 String sql = String.format("BEGIN SYS.DBMS_LOGMNR.REMOVE_LOGFILE(LOGFILENAME => '%s');END;", fileName);
                 executeCallableStatement(conn, sql);
                 LOGGER.debug("File {} was removed from mining", fileName);
+            }
+        }
+    }
+
+    public static void resetSessionToCdb(Connection connection) {
+        Statement statement = null;
+
+        try {
+            statement = connection.createStatement();
+            statement.execute("alter session set container=cdb$root");
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            if (statement != null) {
+                try {
+                    statement.close();
+                }
+                catch (SQLException e) {
+                    LOGGER.error("Couldn't close statement", e);
+                }
             }
         }
     }
@@ -132,10 +155,10 @@ public class LogMinerHelper {
         }
     }
 
-    public static String logMinerViewQuery() {
+    public static String logMinerViewQuery(String schema) {
         StringBuilder query = new StringBuilder();
         query.append("SELECT SCN, SQL_REDO, OPERATION_CODE, TIMESTAMP, XID, CSF, TABLE_NAME, SEG_OWNER, OPERATION, USERNAME ");
-        query.append("FROM V$LOGMNR_CONTENTS ").append(" ");
+        query.append("FROM V$LOGMNR_CONTENTS ");
         query.append("WHERE ");
         query.append("SCN > ? AND SCN <= ? ");
         query.append("AND (");
@@ -147,6 +170,13 @@ public class LogMinerHelper {
         query.append("OR ");
         query.append("(OPERATION_CODE IN (1,2,3) ");
         query.append("))");
+
+        if (StringUtils.isNotBlank(schema)) {
+            query.append(" AND ");
+            query.append("USERNAME = '");
+            query.append(schema);
+            query.append("' ");
+        }
 
         return query.toString();
     }

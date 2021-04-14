@@ -1,6 +1,7 @@
 package com.github.taven.logminer;
 
 import com.github.taven.common.consumer.ConsumerThreadPool;
+import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.common.oracle.OracleHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,33 +9,45 @@ import org.slf4j.LoggerFactory;
 import java.math.BigInteger;
 import java.sql.*;
 import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class LogMinerCDC {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerCDC.class);
+    private static final Logger logger = LoggerFactory.getLogger(LogMinerCDC.class);
     private final Connection connection;
     private BigInteger startScn;
     private final ConsumerThreadPool consumerThreadPool;
     private List<BigInteger> currentRedoLogSequences;
     private final TransactionalBuffer transactionalBuffer;
-    private OffsetContext offsetContext;
+    private final OffsetContext offsetContext;
+    private final LogMinerDmlConsumer logMinerDmlConsumer = new LogMinerDmlConsumer();
 
-    public LogMinerCDC(Connection connection, BigInteger startScn, ConsumerThreadPool consumerThreadPool) {
+    private String schema;
+
+    public LogMinerCDC(Connection connection, BigInteger startScn, ConsumerThreadPool consumerThreadPool,
+                       Properties oracleConfig) {
         this.connection = connection;
         this.startScn = startScn;
         this.consumerThreadPool = consumerThreadPool;
         this.transactionalBuffer = new TransactionalBuffer();
+        this.offsetContext = new OffsetContext();
+        this.schema = oracleConfig.getProperty(OracleConfig.jdbcSchema);
     }
 
     public void start() {
         try {
+            logger.info("start LogMiner...");
+            LogMinerHelper.resetSessionToCdb(connection);
+
             // 1.记录当前redoLog，用于下文判断redoLog 是否切换
             currentRedoLogSequences = LogMinerHelper.getCurrentRedoLogSequences(connection);
 
             // 2.构建数据字典 && add redo / archived log
             initializeLogMiner();
 
-            String minerViewQuery = LogMinerHelper.logMinerViewQuery();
+            String minerViewQuery = LogMinerHelper.logMinerViewQuery(schema);
+            logger.debug(minerViewQuery);
             try (PreparedStatement minerViewStatement = connection.prepareStatement(minerViewQuery, ResultSet.TYPE_FORWARD_ONLY,
                     ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
                 // while
@@ -45,6 +58,7 @@ public class LogMinerCDC {
                     // 4.是否发生redoLog切换
                     if (redoLogSwitchOccurred()) {
                         // 如果切换则重启logMiner会话
+                        logger.debug("restart LogMiner Session");
                         restartLogMiner();
                     }
 
@@ -61,16 +75,23 @@ public class LogMinerCDC {
                     // 7.确定新的SCN
                     startScn = endScn;
 
-                    // 8.重启后的StartScn
+                    // 8.set Offset
                     if (transactionalBuffer.isEmpty()) {
                         offsetContext.offsetScn = startScn.longValue();
+                    }
+
+                    try {
+                        // 避免频繁的执行导致 PGA 内存超出 PGA_AGGREGATE_LIMIT
+                        TimeUnit.SECONDS.sleep(2);
+                    } catch (InterruptedException e) {
+                        logger.error(e.getMessage(), e);
                     }
                 }
 
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage(), e);
         }
 
     }
@@ -92,7 +113,7 @@ public class LogMinerCDC {
             if (operationCode == LogMinerHelper.LOG_MINER_OC_COMMIT) {
                 // 将TransactionalBuffer中当前事务的DML 转移到消费者处理
                 if (transactionalBuffer.commit(txId, scn, offsetContext)) {
-                    LOGGER.debug("txId: {} commit", txId);
+                    logger.debug("txId: {} commit", txId);
                 }
                 continue;
             }
@@ -101,21 +122,20 @@ public class LogMinerCDC {
             if (operationCode == LogMinerHelper.LOG_MINER_OC_ROLLBACK) {
                 // 清空TransactionalBuffer中当前事务
                 if (transactionalBuffer.rollback(txId)) {
-                    LOGGER.debug("txId: {} rollback", txId);
+                    logger.debug("txId: {} rollback", txId);
                 }
                 continue;
             }
 
             // DDL
             if (operationCode == LogMinerHelper.LOG_MINER_OC_DDL) {
-                LOGGER.info("DDL: {}", redoSql);
+                logger.info("DDL: {}", redoSql);
                 continue;
             }
 
             // MISSING_SCN
-            // MISSING_SCN
             if (operationCode == LogMinerHelper.LOG_MINER_OC_MISSING_SCN) {
-                LOGGER.warn("Found MISSING_SCN");
+                logger.warn("Found MISSING_SCN");
                 continue;
             }
 
@@ -126,7 +146,7 @@ public class LogMinerCDC {
                 // 内部维护 TransactionalBuffer，将每条DML注册到Buffer中
                 // 根据事务提交或者回滚情况决定如何处理
                 if (redoSql != null) {
-                    LOGGER.debug("txId: {}, dml: {}", txId, redoSql);
+                    logger.debug("txId: {}, dml: {}", txId, redoSql);
                     LogMinerDmlObject dmlObject = new LogMinerDmlObject(redoSql, segOwner, tableName, changeTime, txId, scn);
                     // Transactional Commit Callback
                     TransactionalBuffer.CommitCallback commitCallback = (smallestScn, commitScn, counter) -> {
@@ -140,7 +160,7 @@ public class LogMinerCDC {
                         }
 
                         // 消费LogMiner数据
-                        consumerThreadPool.asyncConsume(() -> LogMinerDmlConsumer.consume(dmlObject));
+                        consumerThreadPool.asyncConsume(() -> logMinerDmlConsumer.consume(dmlObject));
                     };
 
                     transactionalBuffer.registerCommitCallback(txId, scn, changeTime.toInstant(), commitCallback);
@@ -193,14 +213,16 @@ public class LogMinerCDC {
         List<String> logFilesNames = archivedLogFiles.stream().map(LogFile::getFileName).collect(Collectors.toList());
 
         for (LogFile onlineLogFile : onlineLogFiles) {
+            boolean found = false;
             for (LogFile archivedLogFile : archivedLogFiles) {
                 if (onlineLogFile.isSameRange(archivedLogFile)) {
                     // 如果redo 已经被归档，那么就不需要加载这个redo了
+                    found = true;
                     break;
-                } else {
-                    logFilesNames.add(onlineLogFile.getFileName());
                 }
             }
+            if (!found)
+                logFilesNames.add(onlineLogFile.getFileName());
         }
 
         // 加载所需要的redo / archived

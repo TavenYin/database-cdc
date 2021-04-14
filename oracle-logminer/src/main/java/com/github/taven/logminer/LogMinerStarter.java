@@ -22,15 +22,16 @@ public class LogMinerStarter {
                 config.getProperty(OracleConfig.jdbcUrl),
                 config.getProperty(OracleConfig.jdbcUser),
                 config.getProperty(OracleConfig.jdbcPassword));
-        Queue<DatabaseRecord> queue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
 
+        ConsumerThreadPool consumerThreadPool = new ConsumerThreadPool();
 
-        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, queue);
+        System.out.println("start snapshot...");
+        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, consumerThreadPool);
         SnapshotResult snapshotResult = snapshotExecutor.execute();
         System.out.println("snapshot completed, scn is " + snapshotResult.getScn());
 
         LogMinerCDC logMinerCDC = new LogMinerCDC(connection,
-                BigInteger.valueOf(snapshotResult.getScn()), new ConsumerThreadPool());
+                BigInteger.valueOf(snapshotResult.getScn()), consumerThreadPool, config);
         logMinerCDC.start();
     }
 }

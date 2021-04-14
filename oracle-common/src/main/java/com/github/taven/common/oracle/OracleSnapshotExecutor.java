@@ -1,19 +1,22 @@
 package com.github.taven.common.oracle;
 
+import com.github.taven.common.consumer.ConsumerThreadPool;
+
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class OracleSnapshotExecutor {
     private final Connection connection;
     private final String schema;
     private Map<String, List<TableColumn>> tableStructure;
-    private final Queue<DatabaseRecord> queue;
+    private final ConsumerThreadPool consumerThreadPool;
 
-    public OracleSnapshotExecutor(Connection connection, String schema, Queue<DatabaseRecord> queue) {
+    public OracleSnapshotExecutor(Connection connection, String schema, ConsumerThreadPool consumerThreadPool) {
         this.connection = connection;
         this.schema = schema;
-        this.queue = queue;
+        this.consumerThreadPool = consumerThreadPool;
     }
 
     public SnapshotResult execute() {
@@ -35,6 +38,19 @@ public class OracleSnapshotExecutor {
         }
     }
 
+    private SimpleCounter simpleCounter = new SimpleCounter();
+    private static class SimpleCounter implements Runnable {
+        public void counter() {
+            System.out.println("snapshot counter " + counter);
+        }
+
+        public AtomicInteger counter = new AtomicInteger();
+        @Override
+        public void run() {
+            counter.incrementAndGet();
+        }
+    };
+
     private void flashbackQuery(long scn) throws SQLException {
         try (Statement statement = readTableStatement()) {
             for (Map.Entry<String, List<TableColumn>> entry : tableStructure.entrySet()) {
@@ -50,12 +66,14 @@ public class OracleSnapshotExecutor {
                         }
 
                         // 如果单纯是线性的读，数据量很大的话会导致OOM，所以正确的做法是一边读一边消费
-                        queue.add(new DatabaseRecord(columns, row));
+                        consumerThreadPool.asyncConsume(simpleCounter);
                     }
 
                 }
             }
         }
+
+        simpleCounter.counter();
     }
 
 

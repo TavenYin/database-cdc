@@ -1,5 +1,6 @@
 package com.github.taven;
 
+import com.github.taven.common.consumer.ConsumerThreadPool;
 import com.github.taven.common.oracle.*;
 import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.xstream.OracleXStreamCDC;
@@ -34,7 +35,7 @@ public class XStreamStarter {
         Queue<DatabaseRecord> queue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
 
 
-        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, queue);
+        OracleSnapshotExecutor snapshotExecutor = new OracleSnapshotExecutor(connection, schema, new ConsumerThreadPool());
         SnapshotResult snapshotResult = snapshotExecutor.execute();
         System.out.println("snapshot completed, scn is " + snapshotResult.getScn());
 

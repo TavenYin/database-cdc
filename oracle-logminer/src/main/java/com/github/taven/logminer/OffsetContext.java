@@ -7,6 +7,7 @@ public class OffsetContext {
     Long committedScn;
 
     public OffsetContext() {
+        committedScn = 0L;
     }
 
     public Long getOffsetScn() {

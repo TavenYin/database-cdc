@@ -4,7 +4,8 @@ import java.util.concurrent.*;
 
 public class ConsumerThreadPool {
 
-    ThreadPoolExecutor consumerThreadPool = new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
+    ThreadPoolExecutor consumerThreadPool = new ThreadPoolExecutor(1, 1,
+            60, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>());
 
     public void syncConsume(Runnable runnable) {

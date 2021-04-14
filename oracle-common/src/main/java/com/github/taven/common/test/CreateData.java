@@ -22,11 +22,11 @@ public class CreateData {
                 config.getProperty(OracleConfig.jdbcUser),
                 config.getProperty(OracleConfig.jdbcPassword));
 
-        while (true) {
+//        while (true) {
             try (PreparedStatement ps = connection.prepareStatement("insert into SCOTT.TEST_TAB VALUES(?,?,?)")) {
                 connection.setAutoCommit(false);
 
-                for (int i = 0; i < 10000 ; i++) {
+                for (int i = 0; i < 100000 ; i++) {
                     ps.setString(1, UUID.randomUUID().toString());
                     ps.setBigDecimal(2, new BigDecimal("11.11"));
                     ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
@@ -47,7 +47,7 @@ public class CreateData {
 //                statement.execute("delete from SCOTT.TEST_TAB where rownum < 500");
 //                connection.commit();
 //                System.out.println("update commit");
-            }
+//            }
         }
 
     }
