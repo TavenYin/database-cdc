@@ -1,6 +1,5 @@
 package com.github.taven.logminer;
 
-import java.math.BigInteger;
 
 public class OffsetContext {
     // 该offset应该存储在外部，表示该SCN之前的记录已经全部处理完毕
