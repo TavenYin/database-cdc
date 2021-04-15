@@ -1,6 +1,6 @@
 package com.github.taven.logminer;
 
-import com.github.taven.common.consumer.ConsumerThreadPool;
+import com.github.taven.logminer.consumer.LogMinerSink;
 import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.common.oracle.OracleHelper;
 import org.slf4j.Logger;
@@ -17,19 +17,18 @@ public class LogMinerCDC {
     private static final Logger logger = LoggerFactory.getLogger(LogMinerCDC.class);
     private final Connection connection;
     private BigInteger startScn;
-    private final ConsumerThreadPool consumerThreadPool;
+    private final LogMinerSink logMinerSink;
     private List<BigInteger> currentRedoLogSequences;
     private final TransactionalBuffer transactionalBuffer;
     private final OffsetContext offsetContext;
-    private final LogMinerDmlConsumer logMinerDmlConsumer = new LogMinerDmlConsumer();
 
     private String schema;
 
-    public LogMinerCDC(Connection connection, BigInteger startScn, ConsumerThreadPool consumerThreadPool,
+    public LogMinerCDC(Connection connection, BigInteger startScn, LogMinerSink logMinerSink,
                        Properties oracleConfig) {
         this.connection = connection;
         this.startScn = startScn;
-        this.consumerThreadPool = consumerThreadPool;
+        this.logMinerSink = logMinerSink;
         this.transactionalBuffer = new TransactionalBuffer();
         this.offsetContext = new OffsetContext();
         this.schema = oracleConfig.getProperty(OracleConfig.jdbcSchema);
@@ -160,7 +159,7 @@ public class LogMinerCDC {
                         }
 
                         // 消费LogMiner数据
-                        consumerThreadPool.asyncConsume(() -> logMinerDmlConsumer.consume(dmlObject));
+                        logMinerSink.handleLogMinerDml(dmlObject);
                     };
 
                     transactionalBuffer.registerCommitCallback(txId, scn, changeTime.toInstant(), commitCallback);

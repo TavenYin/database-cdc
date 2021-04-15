@@ -1,4 +1,4 @@
-package com.github.taven.common.oracle;
+package com.github.taven.common.util;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
