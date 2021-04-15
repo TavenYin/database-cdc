@@ -10,7 +10,7 @@ public class OracleSnapshotExecutor {
     private final Connection connection;
     private final String schema;
     private Map<String, List<TableColumn>> tableStructure;
-    private SnapshotCallback callback;
+    private final SnapshotCallback callback;
 
     public OracleSnapshotExecutor(Connection connection, String schema, SnapshotCallback callback) {
         this.connection = connection;
@@ -73,6 +73,7 @@ public class OracleSnapshotExecutor {
     private void pushIfNecessary(List<TableColumn> columns, List<Object[]> records, boolean force) {
         if (records.size() > 5000 || force) {
             callback.apply(columns, records);
+            records.clear();
         }
     }
 

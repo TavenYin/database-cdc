@@ -3,6 +3,7 @@ package com.github.taven.logminer;
 import com.github.taven.logminer.consumer.LogMinerSink;
 import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.common.oracle.OracleHelper;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +60,7 @@ public class LogMinerCDC {
                         // 如果切换则重启logMiner会话
                         logger.debug("restart LogMiner Session");
                         restartLogMiner();
+                        currentRedoLogSequences = LogMinerHelper.getCurrentRedoLogSequences(connection);
                     }
 
                     // 5.start logMiner
@@ -70,6 +72,7 @@ public class LogMinerCDC {
                     minerViewStatement.setString(1, startScn.toString());
                     minerViewStatement.setString(2, endScn.toString());
                     LogMinerHelper.executeQuery(minerViewStatement, this::logMinerViewProcessor);
+                    // todo 记录查询视图用时
 
                     // 7.确定新的SCN
                     startScn = endScn;
@@ -199,6 +202,7 @@ public class LogMinerCDC {
 
     private void initializeLogMiner() throws SQLException {
         // 默认使用在线数据字典，所以此处不做数据字典相关操作
+        LogMinerHelper.buildDataDictionary(connection);
 
         setRedoLog();
     }
@@ -206,8 +210,8 @@ public class LogMinerCDC {
     private void setRedoLog() throws SQLException {
         LogMinerHelper.removeLogFilesFromMining(connection);
 
-        List<LogFile> archivedLogFiles = LogMinerHelper.getArchivedLogFilesForOffsetScn(connection, startScn);
         List<LogFile> onlineLogFiles = LogMinerHelper.getOnlineLogFilesForOffsetScn(connection, startScn);
+        List<LogFile> archivedLogFiles = LogMinerHelper.getArchivedLogFilesForOffsetScn(connection, startScn);
 
         List<String> logFilesNames = archivedLogFiles.stream().map(LogFile::getFileName).collect(Collectors.toList());
 
