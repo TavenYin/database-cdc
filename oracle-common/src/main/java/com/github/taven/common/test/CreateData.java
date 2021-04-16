@@ -66,6 +66,15 @@ public class CreateData {
 //                    System.out.println("delete commit");
 //                }
 
+                // rollback
+                ps.setString(1, UUID.randomUUID().toString());
+                ps.setBigDecimal(2, new BigDecimal(1));
+//                ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+                ps.setTimestamp(3, null);
+                ps.execute();
+                connection.rollback();
+                System.out.println("insert rollback");
+
                 counter--;
             }
         }
