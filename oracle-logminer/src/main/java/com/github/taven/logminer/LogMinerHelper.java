@@ -127,15 +127,19 @@ public class LogMinerHelper {
         }
     }
 
-    public static void buildDataDictionary(Connection connection) throws SQLException {
-        String sql = "BEGIN DBMS_LOGMNR_D.BUILD (options => DBMS_LOGMNR_D.STORE_IN_REDO_LOGS); END;";
-        executeCallableStatement(connection, sql);
+    public static void buildDataDictionary(Connection connection, String miningStrategy) throws SQLException {
+        if (miningStrategy != null && !miningStrategy.contains("DICT_FROM_ONLINE_CATALOG")) {
+            // default
+            String sql = "BEGIN DBMS_LOGMNR_D.BUILD (options => DBMS_LOGMNR_D.STORE_IN_REDO_LOGS); END;";
+            executeCallableStatement(connection, sql);
+        }
     }
 
-    public static void startLogMiner(Connection connection, BigInteger startScn, BigInteger endScn) throws SQLException {
+    public static void startLogMiner(Connection connection, BigInteger startScn, BigInteger endScn, String miningStrategy) throws SQLException {
         // default
-//        String miningStrategy = "DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG ";
-        String miningStrategy = "DBMS_LOGMNR.DICT_FROM_REDO_LOGS + DBMS_LOGMNR.DDL_DICT_TRACKING ";
+        if (StringUtils.isBlank(miningStrategy)) {
+            miningStrategy = "DBMS_LOGMNR.DICT_FROM_REDO_LOGS + DBMS_LOGMNR.DDL_DICT_TRACKING ";
+        }
 
         String startLogMiner = "BEGIN sys.dbms_logmnr.start_logmnr(" +
                 "startScn => '" + startScn + "', " +

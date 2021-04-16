@@ -9,5 +9,6 @@ public interface OracleConfig {
     String jdbcSchema = "oracle.jdbc.schema";
     String ociUrl = "oracle.xstream.url";
     String outboundServer = "oracle.xstream.outboundServer";
+    String miningStrategy = "oracle.mining.strategy";
 
 }

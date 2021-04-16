@@ -26,6 +26,7 @@ public class LogMinerCDC {
     private String schema;
     private final String logMinerUser;
     private final StopWatch stopWatch = StopWatch.create();
+    private final String miningStrategy;
 
     public LogMinerCDC(Connection connection, BigInteger startScn, LogMinerSink logMinerSink,
                        Properties oracleConfig) {
@@ -36,6 +37,7 @@ public class LogMinerCDC {
         this.offsetContext = new OffsetContext();
         this.schema = oracleConfig.getProperty(OracleConfig.jdbcSchema);
         this.logMinerUser = oracleConfig.getProperty(OracleConfig.jdbcUser);
+        this.miningStrategy = oracleConfig.getProperty(OracleConfig.miningStrategy);
     }
 
     public void start() {
@@ -67,7 +69,7 @@ public class LogMinerCDC {
                     }
 
                     // 5.start logMiner
-                    LogMinerHelper.startLogMiner(connection, startScn, endScn);
+                    LogMinerHelper.startLogMiner(connection, startScn, endScn, miningStrategy);
 
                     // 6.查询 logMiner view, 处理结果集
                     minerViewStatement.setFetchSize(2000);
@@ -214,7 +216,7 @@ public class LogMinerCDC {
 
     private void initializeLogMiner() throws SQLException {
         // 默认使用在线数据字典，所以此处不做数据字典相关操作
-        LogMinerHelper.buildDataDictionary(connection);
+        LogMinerHelper.buildDataDictionary(connection, miningStrategy);
 
         setRedoLog();
     }
