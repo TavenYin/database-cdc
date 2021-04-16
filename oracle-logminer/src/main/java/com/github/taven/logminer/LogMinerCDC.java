@@ -24,6 +24,7 @@ public class LogMinerCDC {
     private final OffsetContext offsetContext;
 
     private String schema;
+    private String logMinerUser;
 
     public LogMinerCDC(Connection connection, BigInteger startScn, LogMinerSink logMinerSink,
                        Properties oracleConfig) {
@@ -33,6 +34,7 @@ public class LogMinerCDC {
         this.transactionalBuffer = new TransactionalBuffer();
         this.offsetContext = new OffsetContext();
         this.schema = oracleConfig.getProperty(OracleConfig.jdbcSchema);
+        this.logMinerUser = oracleConfig.getProperty(OracleConfig.jdbcUser);
     }
 
     public void start() {
@@ -46,7 +48,7 @@ public class LogMinerCDC {
             // 2.构建数据字典 && add redo / archived log
             initializeLogMiner();
 
-            String minerViewQuery = LogMinerHelper.logMinerViewQuery(schema);
+            String minerViewQuery = LogMinerHelper.logMinerViewQuery(schema, logMinerUser);
             logger.debug(minerViewQuery);
             try (PreparedStatement minerViewStatement = connection.prepareStatement(minerViewQuery, ResultSet.TYPE_FORWARD_ONLY,
                     ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
@@ -110,6 +112,9 @@ public class LogMinerCDC {
             String username = rs.getString("USERNAME");
 
             String redoSql = getRedoSQL(rs);
+
+            logger.trace("Capture record, SCN:{}, TABLE_NAME:{}, SEG_OWNER:{}, OPERATION_CODE:{}, TIMESTAMP:{}, XID:{}, OPERATION:{}, USERNAME:{}",
+                    scn, tableName, segOwner, operationCode, changeTime, txId, operation, username);
 
             // Commit
             if (operationCode == LogMinerHelper.LOG_MINER_OC_COMMIT) {

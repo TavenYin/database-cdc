@@ -161,7 +161,7 @@ public class LogMinerHelper {
         }
     }
 
-    public static String logMinerViewQuery(String schema) {
+    public static String logMinerViewQuery(String schema, String logMinerUser) {
         StringBuilder query = new StringBuilder();
         query.append("SELECT SCN, SQL_REDO, OPERATION_CODE, TIMESTAMP, XID, CSF, TABLE_NAME, SEG_OWNER, OPERATION, USERNAME ");
         query.append("FROM V$LOGMNR_CONTENTS ");
@@ -169,7 +169,7 @@ public class LogMinerHelper {
         query.append("SCN > ? AND SCN <= ? ");
         query.append("AND (");
         // MISSING_SCN/DDL only when not performed by excluded users
-        query.append("(OPERATION_CODE IN (5,34))");
+        query.append("(OPERATION_CODE IN (5,34)) AND USERNAME NOT IN (").append(getExcludedUsers(logMinerUser)).append(")) ");
         // COMMIT/ROLLBACK
         query.append("OR (OPERATION_CODE IN (7,36)) ");
         // INSERT/UPDATE/DELETE
@@ -185,6 +185,10 @@ public class LogMinerHelper {
         }
 
         return query.toString();
+    }
+
+    private static String getExcludedUsers(String logMinerUser) {
+        return "'SYS','SYSTEM','" + logMinerUser.toUpperCase() + "'";
     }
 
     public interface ResultSetProcessor {
