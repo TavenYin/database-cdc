@@ -24,7 +24,8 @@ public class LogMinerCDC {
     private final OffsetContext offsetContext;
 
     private String schema;
-    private String logMinerUser;
+    private final String logMinerUser;
+    private final StopWatch stopWatch = StopWatch.create();
 
     public LogMinerCDC(Connection connection, BigInteger startScn, LogMinerSink logMinerSink,
                        Properties oracleConfig) {
@@ -73,8 +74,14 @@ public class LogMinerCDC {
                     minerViewStatement.setFetchDirection(ResultSet.FETCH_FORWARD);
                     minerViewStatement.setString(1, startScn.toString());
                     minerViewStatement.setString(2, endScn.toString());
-                    LogMinerHelper.executeQuery(minerViewStatement, this::logMinerViewProcessor);
-                    // todo 记录查询视图用时
+
+                    stopWatch.start();
+
+                    try (ResultSet rs = minerViewStatement.executeQuery()) {
+                        logger.trace("Query V$LOGMNR_CONTENTS spend time {} ms", stopWatch.getTime(TimeUnit.MILLISECONDS));
+                        stopWatch.reset();
+                        logMinerViewProcessor(rs);
+                    }
 
                     // 7.确定新的SCN
                     startScn = endScn;
