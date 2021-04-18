@@ -31,6 +31,10 @@ lock any table,
 logmining,
 set container,
  select any dictionary to c##logminer_privs container=all;
+
+GRANT CREATE TABLE TO c##logminer_privs CONTAINER=ALL;
+grant select_catalog_role TO c##logminer_privs CONTAINER=ALL;
+
 grant select on SYSTEM.LOGMNR_COL$ to c##logminer_privs container=all;
 grant select on SYSTEM.LOGMNR_OBJ$ to c##logminer_privs container=all;
 grant select on SYSTEM.LOGMNR_USER$ to c##logminer_privs container=all;
