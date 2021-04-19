@@ -128,7 +128,7 @@ public class LogMinerHelper {
     }
 
     public static void buildDataDictionary(Connection connection, String miningStrategy) throws SQLException {
-        if (miningStrategy != null && !miningStrategy.contains("DICT_FROM_ONLINE_CATALOG")) {
+        if (StringUtils.isBlank(miningStrategy)) {
             // default
             String sql = "BEGIN DBMS_LOGMNR_D.BUILD (options => DBMS_LOGMNR_D.STORE_IN_REDO_LOGS); END;";
             executeCallableStatement(connection, sql);
