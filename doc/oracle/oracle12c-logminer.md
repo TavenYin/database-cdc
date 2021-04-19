@@ -61,6 +61,10 @@
     ALTER TABLE schema.tablename ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
     ```
    
+   ### 备注
+   12c以上的版本安装步骤应该都是差不多的（我没试过）
+   
+   11g可以参考一下下面的那个华为的文档或者Debezium文档
    
    ### 参考
    - https://debezium.io/documentation/reference/connectors/oracle.html
