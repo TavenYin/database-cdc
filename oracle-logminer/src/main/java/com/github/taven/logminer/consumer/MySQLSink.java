@@ -95,6 +95,7 @@ public class MySQLSink implements LogMinerSink {
     public void handleLogMinerDml(LogMinerDmlObject dmlObject) {
         // 我写这个消费者的目的就是为了确认程序是否能捕获到Oracle的所有更改
         // 使用Druid自带的工具类进行SQL解析，这里写的有点乱 不要在意
+        // 如果你不知道我写的这一坨是在干啥，建议你Debug一下，看看List<SQLStatement>的结构，你就知道我在干什么了
         List<SQLStatement> sqlStatements = SQLUtils.parseStatements(dmlObject.getRedoSql(), DbType.oracle);
         for (SQLStatement sqlStatement : sqlStatements) {
             if (sqlStatement instanceof OracleInsertStatement) {
