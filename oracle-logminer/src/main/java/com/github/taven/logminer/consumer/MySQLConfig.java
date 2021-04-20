@@ -5,4 +5,6 @@ public interface MySQLConfig {
     String jdbcUrl = "mysql.jdbc.url";
     String jdbcUser = "mysql.jdbc.user";
     String jdbcPassword = "mysql.jdbc.password";
+
+    String consumerEnabled = "consumer.enabled";
 }
