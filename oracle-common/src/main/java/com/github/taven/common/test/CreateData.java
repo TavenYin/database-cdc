@@ -27,8 +27,8 @@ public class CreateData {
 
         connection.setAutoCommit(false);
 
-        int counter = 10;
-        int insertCounter = 10000;
+        int counter = 1;
+        int insertCounter = 1;
 
         try (PreparedStatement ps = connection.prepareStatement("insert into SCOTT.TEST_TAB VALUES(?,?,?)")) {
             while (counter > 0) {
@@ -43,8 +43,8 @@ public class CreateData {
 
                     ps.setString(1, uuid);
                     ps.setBigDecimal(2, new BigDecimal(1));
-//                    ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
-                    ps.setTimestamp(3, null);
+                    ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+//                    ps.setTimestamp(3, null);
                     ps.addBatch();
                 }
 
@@ -52,19 +52,19 @@ public class CreateData {
                 connection.commit();
                 System.out.println("insert commit");
 
-//                try (Statement statement = connection.createStatement()) {
-//                    // update
-//                    String updateSql = String.format("update SCOTT.TEST_TAB set UPDATE_TIME = TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF') where id in (%s)",
-//                            new Timestamp(System.currentTimeMillis()), String.join(",", updateIds));
-//                    statement.execute(updateSql);
-//                    connection.commit();
-//                    System.out.println("update commit");
-//
-//                    // delete
-//                    statement.execute("delete from SCOTT.TEST_TAB where rownum < 500");
-//                    connection.commit();
-//                    System.out.println("delete commit");
-//                }
+                try (Statement statement = connection.createStatement()) {
+                    // update
+                    String updateSql = String.format("update SCOTT.TEST_TAB set UPDATE_TIME = TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF') where id in (%s)",
+                            new Timestamp(System.currentTimeMillis()), String.join(",", updateIds));
+                    statement.execute(updateSql);
+                    connection.commit();
+                    System.out.println("update commit");
+
+                    // delete
+                    statement.execute("delete from SCOTT.TEST_TAB where rownum < 500");
+                    connection.commit();
+                    System.out.println("delete commit");
+                }
 
                 // rollback
                 ps.setString(1, UUID.randomUUID().toString());

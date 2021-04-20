@@ -5,6 +5,7 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLMethodInvokeExpr;
 import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleDeleteStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleInsertStatement;
@@ -92,6 +93,8 @@ public class MySQLSink implements LogMinerSink {
     }
 
     public void handleLogMinerDml(LogMinerDmlObject dmlObject) {
+        // 我写这个消费者的目的就是为了确认程序是否能捕获到Oracle的所有更改
+        // 使用Druid自带的工具类进行SQL解析，这里写的有点乱 不要在意
         List<SQLStatement> sqlStatements = SQLUtils.parseStatements(dmlObject.getRedoSql(), DbType.oracle);
         for (SQLStatement sqlStatement : sqlStatements) {
             if (sqlStatement instanceof OracleInsertStatement) {
@@ -101,7 +104,13 @@ public class MySQLSink implements LogMinerSink {
                         .stream().map(c -> ((SQLIdentifierExpr) c).getName().replace("\"", "")).collect(Collectors.toList());
                 List<SQLInsertStatement.ValuesClause> valuesList = oracleStatement.getValuesList();
                 List<String> values = valuesList.get(0).getValues()
-                        .stream().map(SQLExpr::toString).collect(Collectors.toList());
+                        .stream().map(sqlExpr -> {
+                            if (sqlExpr instanceof SQLMethodInvokeExpr) {
+                                return handleOracleFunction(sqlExpr);
+                            } else {
+                                return sqlExpr.toString();
+                            }
+                        }).collect(Collectors.toList());
                 StringBuilder insertBuilder = new StringBuilder();
                 insertBuilder.append("INSERT INTO ")
                         .append(tableName)
@@ -129,4 +138,21 @@ public class MySQLSink implements LogMinerSink {
             }
         }
     }
+
+    private String handleOracleFunction(SQLExpr sqlExpr) {
+        SQLMethodInvokeExpr sqlFunction = (SQLMethodInvokeExpr) sqlExpr;
+        String methodName = sqlFunction.getMethodName();
+        String value;
+        switch (methodName) {
+            case ("TO_TIMESTAMP"): {
+                value = sqlFunction.getArguments().get(0).toString();
+                break;
+            }
+            default:
+                throw new RuntimeException("not supported function");
+        }
+
+        return value;
+    }
+
 }

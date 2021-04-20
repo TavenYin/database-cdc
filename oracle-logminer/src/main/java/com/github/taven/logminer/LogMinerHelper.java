@@ -1,5 +1,6 @@
 package com.github.taven.logminer;
 
+import com.mysql.cj.jdbc.JdbcConnection;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -200,6 +201,23 @@ public class LogMinerHelper {
 
     public interface ResultSetProcessor {
         void apply(ResultSet rs) throws SQLException;
+    }
+
+    public static void setSessionParameter(Connection connection) throws SQLException {
+        String sql = "ALTER SESSION SET "
+                + "  NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'"
+                + "  NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF'"
+                + "  NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF TZH:TZM'"
+                + "  NLS_NUMERIC_CHARACTERS = '.,'";
+
+        executeCallableStatement(connection, sql);
+        executeCallableStatement(connection, "ALTER SESSION SET TIME_ZONE = '00:00'");
+    }
+
+    public void executeWithoutCommitting(Connection connection, String sql) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
     }
 
     public static void executeQuery(PreparedStatement statement, ResultSetProcessor rsProcessor) throws SQLException {

@@ -44,6 +44,7 @@ public class LogMinerCDC {
         try {
             logger.info("start LogMiner...");
             LogMinerHelper.resetSessionToCdb(connection);
+            LogMinerHelper.setSessionParameter(connection);
 
             // 1.记录当前redoLog，用于下文判断redoLog 是否切换
             currentRedoLogSequences = LogMinerHelper.getCurrentRedoLogSequences(connection);
