@@ -11,6 +11,7 @@ public interface OracleConfig {
     String outboundServer = "oracle.xstream.outboundServer";
     String miningStrategy = "oracle.mining.strategy";
     String oracleVersion = "oracle.version";
+    String miningSinkClass = "oracle.mining.sinkClass";
     String miningDefaultBatch = "oracle.mining.defaultBatch";
     String miningMinBatch = "oracle.mining.minBatch";
     String miningMaxBatch = "oracle.mining.maxBatch";
