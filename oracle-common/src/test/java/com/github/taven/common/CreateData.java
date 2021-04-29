@@ -1,24 +1,23 @@
-package com.github.taven.common.test;
+package com.github.taven.common;
 
+import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.common.util.ConfigUtil;
 import com.github.taven.common.util.JdbcUtil;
-import com.github.taven.common.oracle.OracleConfig;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class CreateData {
-    public static void main(String[] args) throws IOException, SQLException {
+    public static void main(String[] args) throws IOException, SQLException, InterruptedException {
         InputStream inputStream = CreateData.class.getClassLoader().getResourceAsStream("test.properties");
         Properties config = ConfigUtil.load(inputStream);
 
         String schema = config.getProperty(OracleConfig.jdbcSchema);
+        Random rand = new Random();
 
         Connection connection = JdbcUtil.createConnection(config.getProperty(OracleConfig.jdbcDriver),
                 config.getProperty(OracleConfig.jdbcUrl),
@@ -27,8 +26,8 @@ public class CreateData {
 
         connection.setAutoCommit(false);
 
-        int counter = 1;
-        int insertCounter = 1;
+        int counter = 200;
+        int insertCounter = 100;
 
         try (PreparedStatement ps = connection.prepareStatement("insert into SCOTT.TEST_TAB VALUES(?,?,?)")) {
             while (counter > 0) {
@@ -44,7 +43,6 @@ public class CreateData {
                     ps.setString(1, uuid);
                     ps.setBigDecimal(2, new BigDecimal(1));
                     ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
-//                    ps.setTimestamp(3, null);
                     ps.addBatch();
                 }
 
@@ -61,7 +59,7 @@ public class CreateData {
                     System.out.println("update commit");
 
                     // delete
-                    statement.execute("delete from SCOTT.TEST_TAB where rownum < 500");
+                    statement.execute("delete from SCOTT.TEST_TAB where rownum < 10");
                     connection.commit();
                     System.out.println("delete commit");
                 }
@@ -69,11 +67,12 @@ public class CreateData {
                 // rollback
                 ps.setString(1, UUID.randomUUID().toString());
                 ps.setBigDecimal(2, new BigDecimal(1));
-//                ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
                 ps.setTimestamp(3, null);
                 ps.execute();
                 connection.rollback();
                 System.out.println("insert rollback");
+
+                TimeUnit.MILLISECONDS.sleep(rand.nextInt(10000) + 1000);
 
                 counter--;
             }
