@@ -19,4 +19,8 @@ public class OracleHelper {
         }
     }
 
+    public static boolean hasCdb(String oracleVersion) {
+        return !oracleVersion.equals(OracleConstant.defaultVersion);
+    }
+
 }

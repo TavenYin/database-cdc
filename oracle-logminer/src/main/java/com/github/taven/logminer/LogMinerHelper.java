@@ -1,5 +1,6 @@
 package com.github.taven.logminer;
 
+import com.github.taven.common.oracle.OracleHelper;
 import com.mysql.cj.jdbc.JdbcConnection;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -35,7 +36,11 @@ public class LogMinerHelper {
         }
     }
 
-    public static void resetSessionToCdb(Connection connection) {
+    public static void resetSessionToCdbIfNecessary(Connection connection, String oracleVersion) {
+        if (!OracleHelper.hasCdb(oracleVersion)) {
+            return;
+        }
+
         Statement statement = null;
 
         try {

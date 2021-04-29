@@ -1,5 +1,6 @@
 package com.github.taven.logminer;
 
+import com.github.taven.common.oracle.OracleConstant;
 import com.github.taven.logminer.consumer.LogMinerSink;
 import com.github.taven.common.oracle.OracleConfig;
 import com.github.taven.common.oracle.OracleHelper;
@@ -27,6 +28,7 @@ public class LogMinerCDC {
     private final String logMinerUser;
     private final StopWatch stopWatch = StopWatch.create();
     private final String miningStrategy;
+    private final String oracleVersion;
 
     public LogMinerCDC(Connection connection, BigInteger startScn, LogMinerSink logMinerSink,
                        Properties oracleConfig) {
@@ -38,12 +40,13 @@ public class LogMinerCDC {
         this.schema = oracleConfig.getProperty(OracleConfig.jdbcSchema);
         this.logMinerUser = oracleConfig.getProperty(OracleConfig.jdbcUser);
         this.miningStrategy = oracleConfig.getProperty(OracleConfig.miningStrategy);
+        this.oracleVersion = oracleConfig.getProperty(OracleConfig.oracleVersion, OracleConstant.defaultVersion);
     }
 
     public void start() {
         try {
             logger.info("start LogMiner...");
-            LogMinerHelper.resetSessionToCdb(connection);
+            LogMinerHelper.resetSessionToCdbIfNecessary(connection, oracleVersion);
             LogMinerHelper.setSessionParameter(connection);
 
             // 1.记录当前redoLog，用于下文判断redoLog 是否切换
