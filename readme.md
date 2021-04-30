@@ -1,6 +1,6 @@
 ### 介绍
 
-数据库CDC (Change Data Capture) demo, 持续更新中
+数据库CDC (Change Data Capture) 核心技术, 持续更新中
 
 
 ### 相关blog
